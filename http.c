@@ -67,7 +67,6 @@ int route_http_request(int client_fd, const char* method, const char* path, char
     return SUCCESS; 
 }
 
-
 // ========== HANDLE STATIC FILE ============ //
 // This function handles static file requests //        
 // ========================================== //
@@ -116,7 +115,6 @@ int handle_static_file(int client_fd, const char* filepath) {
     return SUCCESS;
 }
 
-
 // ======= GET_CONTENT_TYPE ============  //
 // This function returns the content type //
 // of the file based on its extension     //  
@@ -132,11 +130,9 @@ char* get_content_type(const char* ext) {
     return "application/octet-stream";
 }
 
-
 // ============== HANDLE CALC =============== //
 // This function handles calculations         //        
 // ========================================== //
-
 
 int handle_calculation(int client_fd, const char* calc_path) {
     char operation[OPERATION_LENGTH];
@@ -177,7 +173,6 @@ int handle_calculation(int client_fd, const char* calc_path) {
 
     return SUCCESS; 
 }
-
 
 // ================== SEND_RESPONSE ================ // 
 // This function sends a response to the client      //

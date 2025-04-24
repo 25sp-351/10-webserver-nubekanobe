@@ -1,5 +1,3 @@
-#include "web_server.h"
-
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -9,13 +7,12 @@
 #include <pthread.h>
 #include <stdlib.h>
 
-#define LISTEN_BACKLOG 10
-#define BUFFER_SIZE 1024
-
-
+#include "web_server.h"
 #include "http.h"
 #include "error.h"
 
+#define LISTEN_BACKLOG 10
+#define BUFFER_SIZE 1024
 
 // Define the struct passed to threads
 // This struct holds the client file descriptor and server configuration

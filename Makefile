@@ -6,7 +6,7 @@ OBJS = server_main.o web_server.o http.o error.o
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET)
 
-server_main.o: server_main.c web_server.h http.h error.h
+server_main.o: server_main.c web_server.h
 	$(CC) $(CFLAGS) -c server_main.c -o server_main.o
 
 web_server.o: web_server.c web_server.h http.h error.h
