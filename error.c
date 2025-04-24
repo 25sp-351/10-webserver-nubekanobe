@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h> 
 
-#include "http.h"
 #include "error.h"
 
 // ====== SEND ERROR RESPONSE CODE ====== //
