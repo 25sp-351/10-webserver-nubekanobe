@@ -46,10 +46,11 @@ int route_http_request(int client_fd, const char* method, const char* path, char
     }
 
     // DEBUG // 
+    /*
     printf("Method: %s\n", method); // Print the HTTP method
     printf("Path: %s\n", path); // Print the URL    
     printf("Protocol: %s\n", protocol); // Print the HTTP protocol
-
+    */
 
     if (strncmp(path, "/static/", STATIC_DIR_LENGTH) == 0) {
         if (!handle_static_file(client_fd, path + STATIC_DIR_LENGTH)) { // skip the leading "/static/"

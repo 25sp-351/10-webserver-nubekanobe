@@ -1,8 +1,8 @@
-#include "web_server.h"
-
 #include <stdio.h> 
 #include <string.h> 
 #include <unistd.h>
+
+#include "web_server.h"
 
 #define MAAXIMUM_PORT_NUMBER 65535
 #define DEFAULT_PORT_NUMBER 80
@@ -25,7 +25,6 @@ int main(int argc, char* argv[]){
 
     // Check for flags in command line arguments
     // -p <port> to specify the port number
-    // -v to print received messages to terminal 
     
     for (int ix = 1; ix < argc; ix++) {
         if (strcmp(argv[ix], "-p") == 0) {
