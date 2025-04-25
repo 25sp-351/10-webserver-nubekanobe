@@ -15,17 +15,36 @@
 #define CALC_RESPONSE_MAX_CHARACTERS 100
 #define ERROR 0
 #define SUCCESS 1
+#define OK_STATUS 200
+
+// ========== INITIATE HTTP REQUEST ============ //
+// This function initializes the HTTP request    //
+// struct with default values. It sets the       //
+// client file descriptor and clears the         //
+// method, path, and protocol fields.            //
+// ============================================= //
+
+void initiate_http_request(HttpRequest* request, int client_fd) {
+    request->client_fd = client_fd;
+    request->method[0] = '\0';
+    request->path[0] = '\0';
+    request->protocol[0] = '\0';
+
+    // Set default protocol to HTTP/1.1 (safe fallback)
+    strncpy(request->protocol, "HTTP/1.1", PROTOCOL_LENGTH);
+    request->protocol[PROTOCOL_LENGTH - 1] = '\0'; // Ensure null-termination
+}
 
 // ========== PARSE HTTP REQUEST ============ //
 // This function parses the HTTP request      // 
 // ========================================== // 
 
-int parse_http_request(char* buffer, char* method, char* path, char* protocol) {
+int parse_http_request(HttpRequest* request, char* buffer) {
     
-    int num_items = sscanf(buffer, "%7s %255s %31s", method, path, protocol);
+    int num_items = sscanf(buffer, "%7s %255s %31s", request->method, request->path, request->protocol);
 
     if (num_items == 3) {
-        if (strncmp(method, "GET", num_items) != 0) {
+        if (strncmp(request->method, "GET", num_items) != 0) {
             return ERROR; // Invalid method
         }
         return SUCCESS; // Valid request
@@ -38,47 +57,60 @@ int parse_http_request(char* buffer, char* method, char* path, char* protocol) {
 // to the appropriate handler based on the URL //
 // ==========================================  //
 
-int route_http_request(int client_fd, const char* method, const char* path, char* protocol) {
+int route_http_request(HttpRequest* request) {
 
-    if (strlen(path) > PATH_LENGTH) {
-        send_error_response_code(client_fd, HTTP_ERR_PATH_TOO_LONG);
+    if (strlen(request->path) > PATH_LENGTH) {
+        send_error_response_code(request, HTTP_ERR_PATH_TOO_LONG);
         return ERROR; 
     }
 
     // DEBUG // 
     /*
-    printf("Method: %s\n", method); // Print the HTTP method
-    printf("Path: %s\n", path); // Print the URL    
-    printf("Protocol: %s\n", protocol); // Print the HTTP protocol
+    printf("Method: %s\n", ruquest->method); // Print the HTTP method
+    printf("Path: %s\n", request->path); // Print the URL    
+    printf("Protocol: %s\n", request->protocol); // Print the HTTP protocol
     */
 
-    if (strncmp(path, "/static/", STATIC_DIR_LENGTH) == 0) {
-        if (!handle_static_file(client_fd, path + STATIC_DIR_LENGTH)) { // skip the leading "/static/"
+    if (strncmp(request->path, "/static/", STATIC_DIR_LENGTH) == 0) {
+        if (!handle_static_file(request)) { // skip the leading "/static/"
             return ERROR; 
         }
-    } else if (strncmp(path, "/calc/", CALC_DIR_LENGTH) == 0) {
-        if (!handle_calculation(client_fd, path + CALC_DIR_LENGTH)) { // skip the leading "/calc/"
+    } else if (strncmp(request->path, "/calc/", CALC_DIR_LENGTH) == 0) {
+        if (!handle_calculation(request)) { // skip the leading "/calc/"
             return ERROR;
         }
     } else {
-        send_error_response_code(client_fd, HTTP_ERR_NOT_FOUND); 
+        send_error_response_code(request, HTTP_ERR_NOT_FOUND); 
         return ERROR;
     }
 
     return SUCCESS; 
 }
 
-// ========== HANDLE STATIC FILE ============ //
-// This function handles static file requests //        
-// ========================================== //
+// ========== HANDLE STATIC FILE ============== //
+// This function handles static file requests.  //
+// It receives a struct containing the  request //
+//  for a static file, which includes the file  //
+//  path and the client_fd.                     //
+// It reads the file from the filesystem and    //
+// sends it back to the client.                 //        
+// ===========================================  //
 
-int handle_static_file(int client_fd, const char* filepath) {
+int handle_static_file(HttpRequest* request) {
+    int client_fd = request->client_fd;
+    const char* filepath = request->path + STATIC_DIR_LENGTH; // Skip the leading "/static/"
+
+    if (strstr(filepath, "..") != NULL) {
+        send_error_response_code(request, HTTP_ERR_FORBIDDEN);
+        return ERROR;
+    }
+
     char full_path[MAX_PATH_LENGTH];
     snprintf(full_path, sizeof(full_path), "./static/%s", filepath); 
 
     FILE* file = fopen(full_path, "rb");
     if (!file) {
-        send_error_response_code(client_fd, HTTP_ERR_NOT_FOUND);
+        send_error_response_code(request, HTTP_ERR_NOT_FOUND);
         return ERROR; 
     }
 
@@ -91,7 +123,7 @@ int handle_static_file(int client_fd, const char* filepath) {
     char* file_buffer = malloc(filesize);
     if (!file_buffer) {
         fclose(file);
-        send_error_response_code(client_fd, HTTP_ERR_UNKOWN);
+        send_error_response_code(request, HTTP_ERR_UNKOWN);
         return ERROR; 
     }
 
@@ -102,15 +134,16 @@ int handle_static_file(int client_fd, const char* filepath) {
     const char* ext = strrchr(filepath, '.');
     const char* content_type = get_content_type(ext);
 
-    HttpResponse res = {
-        .status_code = 200,
+    HttpResponse static_response = {
+        .protocol = request->protocol,
+        .status_code = OK_STATUS,
         .status_text = "OK",
         .content_type = content_type,
         .body = file_buffer,
         .body_length = filesize
     };
 
-    send_response(client_fd, &res);
+    send_response(client_fd, &static_response);
     free(file_buffer);
 
     return SUCCESS;
@@ -132,15 +165,22 @@ char* get_content_type(const char* ext) {
 }
 
 // ============== HANDLE CALC =============== //
-// This function handles calculations         //        
+// This function handles calculations. It     // 
+// receives a struct containing the request   //
+// for a calculation, which includes the      //   
+// operation (add, mul, div) and the two      //
+// operands. It performs the calculation and  //
+// sends the result back to the client.       //
 // ========================================== //
 
-int handle_calculation(int client_fd, const char* calc_path) {
+int handle_calculation(HttpRequest* request) {
+    int client_fd = request->client_fd;
+    const char* calc_path = request->path + CALC_DIR_LENGTH; // Skip the leading "/calc/"
     char operation[OPERATION_LENGTH];
     int num1, num2, result; 
     
     if (sscanf(calc_path, "%3[^/]/%d/%d", operation, &num1, &num2) != CALC_PARAMETERS) {
-        send_error_response_code(client_fd, HTTP_ERR_INVALID_CALC_PATH_FORMAT); 
+        send_error_response_code(request, HTTP_ERR_INVALID_CALC_PATH_FORMAT); 
         return ERROR; 
     }
 
@@ -150,12 +190,12 @@ int handle_calculation(int client_fd, const char* calc_path) {
         result = num1 * num2;
     } else if (strcmp(operation, "div") == 0) {
         if (num2 == 0) {
-            send_error_response_code(client_fd, HTTP_ERR_DIV_ZERO);
+            send_error_response_code(request, HTTP_ERR_DIV_ZERO);
             return ERROR; 
         }
         result = num1 / num2;
     } else {
-        send_error_response_code(client_fd, HTTP_ERR_UNSUPPORTED_OPERATION);
+        send_error_response_code(request, HTTP_ERR_UNSUPPORTED_OPERATION);
         return ERROR; 
     }
 
@@ -163,7 +203,8 @@ int handle_calculation(int client_fd, const char* calc_path) {
     size_t calc_body_length = snprintf(calc_body, sizeof(calc_body), "%d\n", result);
 
     HttpResponse calc_response = {
-        .status_code = 200,
+        .protocol = request->protocol,
+        .status_code = OK_STATUS,
         .status_text = "OK",
         .content_type = "text/plain",
         .body = calc_body,
@@ -183,12 +224,13 @@ void send_response(int client_fd, HttpResponse* response) {
 
     char header[MAX_HEADER_LENGTH];
     int header_length = snprintf(header, sizeof(header),
-        "HTTP/1.1 %d %s\r\n"
+        "%s %d %s\r\n"
         "Content-Type: %s\r\n"
         "Content-Length: %zu\r\n"
         "\r\n",
-        response->status_code, response->status_text,
-        response->content_type, response->body_length);
+        response->protocol, response->status_code, response->status_text,
+        response->content_type, 
+        response->body_length);
 
     write(client_fd, header, header_length);
     write(client_fd, response->body, response->body_length);

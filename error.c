@@ -10,52 +10,58 @@
 // the error type                         //
 // ====================================== //
 
-
-void send_error_response_code(int client_fd, HttpError error) {
+void send_error_response_code(HttpRequest* request, HttpError error) {
     const char* status_title;
     const char* error_body;
     int error_code;
+    int client_fd = request->client_fd;
 
     switch (error) {
         case HTTP_ERR_BAD_REQUEST:
-            error_code = 400;
+            error_code = BAD_REQUEST;
             status_title = "Bad Request";
-            error_body = "Invalid HTTP request format.";
+            error_body = "400: Invalid HTTP request format.";
             break;
         case HTTP_ERR_NOT_FOUND:
-            error_code = 404;
+            error_code = NOT_FOUND;
             status_title = "Not Found";
-            error_body = "The requested resource was not found.";
+            error_body = "404: The requested resource was not found.";
             break;
         case HTTP_ERR_DIV_ZERO:
-            error_code = 400;
+            error_code = BAD_REQUEST;
             status_title = "Bad Request";
-            error_body = "Division by zero.";
+            error_body = "400: Division by zero.";
             break;
         case HTTP_ERR_UNSUPPORTED_OPERATION:
-            error_code = 400;
+            error_code = BAD_REQUEST;
             status_title = "Bad Request";
-            error_body = "Unsupported operation.";
+            error_body = "400: Unsupported operation.";
             break;
         case HTTP_ERR_PATH_TOO_LONG:
-            error_code = 414;
+            error_code = REQUEST_URI_TOO_LONG;
             status_title = "Request-URI Too Long";
-            error_body = "The request path is too long.";
+            error_body = "414: The request path is too long.";
             break;
         case HTTP_ERR_INVALID_CALC_PATH_FORMAT:
-            error_code = 400; 
+            error_code = BAD_REQUEST; 
             status_title = "Bad Request"; 
-            error_body = "Invalid calculation path format."; 
+            error_body = "400: Invalid calculation path format."; 
             break;  
+        case HTTP_ERR_FORBIDDEN:
+            error_code = BAD_REQUEST;
+            status_title = "Bad Request";
+            error_body = "400: Forbidden path.";
+            break;
         case HTTP_ERR_UNKOWN:
         default:
-            error_code = 500;
-            status_title = "Internal Server Error";
+            error_code = INTERNAL_SERVER_ERROR;
+            status_title = "500: Internal Server Error";
             error_body = "An unknown error occurred.";
             break;
     }
 
     HttpResponse error_response = {
+        .protocol = request->protocol,
         .status_code = error_code,
         .status_text = status_title,
         .content_type = "text/plain",

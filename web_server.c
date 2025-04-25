@@ -28,7 +28,7 @@ typedef struct {
 // incoming connections                                            // 
 // =============================================================== //
 
-int createListeningSocket(int port_number){
+int create_listening_socket(int port_number){
 
     // Socket file descriptor, allows me to bind to a port, listen for connections, and accept connections
     // AF_INET - address family, specifies the protocol family to be used - (IPv4)
@@ -68,7 +68,7 @@ int createListeningSocket(int port_number){
 // to handle each connection                                           //
 // =================================================================== //
 
-void acceptConnections(int socket_fd, ServerConfig* server_config){
+void accept_connections(int socket_fd, ServerConfig* server_config){
 
     while (1){
 
@@ -95,7 +95,8 @@ void acceptConnections(int socket_fd, ServerConfig* server_config){
         thread_struct->server_config = server_config;
 
         printf("Accepted connection from client\n");
-        pthread_create(&thread, NULL, handleConnection, (void*)thread_struct); // Create a new thread to handle the connection
+        pthread_create(&thread, NULL, handle_connection, (void*)thread_struct); // Create a new thread to handle the connection
+        pthread_detach(thread); // Detach the thread to allow it to run independently
     }
 }
 
@@ -105,20 +106,20 @@ void acceptConnections(int socket_fd, ServerConfig* server_config){
 // It runs in a separate thread for each client connection   //
 // ========================================================= //
 
-void* handleConnection(void* arg){
+void* handle_connection(void* arg){
 
     ThreadStruct* thread_struct = (ThreadStruct*)arg; 
     int client_fd = thread_struct->client_fd; 
     free(thread_struct); 
 
-    char buffer[BUFFER_SIZE]; // Buffer to hold incoming data
+    char http_request_buffer[BUFFER_SIZE]; // Buffer to hold incoming data
     ssize_t number_of_bytes_read; // Variable to hold the number of bytes received
 
     printf("Handling connection on %d\n", client_fd); 
 
     while(1){
         // Read data from client
-        number_of_bytes_read = read(client_fd, buffer, sizeof(buffer) - 1); // Read data from the client socket
+        number_of_bytes_read = read(client_fd, http_request_buffer, sizeof(http_request_buffer) - 1); // Read data from the client socket
             
         if (number_of_bytes_read < 0) { // Check for read error
                 perror("Error reading from client");
@@ -129,17 +130,16 @@ void* handleConnection(void* arg){
                 break; 
 
         } else {
-                buffer[number_of_bytes_read] = '\0'; // Null-terminate the buffer
+                http_request_buffer[number_of_bytes_read] = '\0'; // Null-terminate the buffer
 
-                char method[METHOD_LENGTH]; // Buffer to hold the HTTP method
-                char path[PATH_LENGTH]; // Buffer to hold the URL
-                char protocol[PROTOCOL_LENGTH]; 
+                HttpRequest http_request; // Struct to hold the HTTP request
+                initiate_http_request(&http_request, client_fd); 
 
-                if (parse_http_request(buffer, method, path, protocol)) { 
-                    if(!route_http_request(client_fd, method, path, protocol))
+                if (parse_http_request(&http_request, http_request_buffer)) { 
+                    if(!route_http_request(&http_request))
                         break;
                 } else {
-                    send_error_response_code(client_fd, HTTP_ERR_BAD_REQUEST);
+                    send_error_response_code(&http_request, HTTP_ERR_BAD_REQUEST);
                     break; 
                 }                 
         }

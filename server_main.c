@@ -59,14 +59,14 @@ int main(int argc, char* argv[]){
         } 
     }
 
-    int socket_fd = createListeningSocket(server_config.port_number); // Create a listening socket on the specified port
+    int socket_fd = create_listening_socket(server_config.port_number); // Create a listening socket on the specified port
 
     if (socket_fd < 0) {
         fprintf(stderr, "Failed to create listening socket. Exiting.\n");
         return 1;
     }
 
-    acceptConnections(socket_fd, &server_config); // Accept incoming connections and handle them in separate threads
+    accept_connections(socket_fd, &server_config); // Accept incoming connections and handle them in separate threads
 
     // Not reaching this points means the server shut down 
     close(socket_fd); // Close the listening socket

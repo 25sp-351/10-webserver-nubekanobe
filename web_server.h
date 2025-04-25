@@ -5,8 +5,8 @@ typedef struct{
     int port_number;  
 } ServerConfig;
 
-int createListeningSocket(int port_number);
-void acceptConnections(int socket_fd, ServerConfig* server_config);
-void* handleConnection(void* arg); 
+int create_listening_socket(int port_number);
+void accept_connections(int socket_fd, ServerConfig* server_config);
+void* handle_connection(void* arg); 
 
 #endif
