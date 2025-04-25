@@ -30,9 +30,9 @@ void initiate_http_request(HttpRequest* request, int client_fd) {
     request->path[0] = '\0';
     request->protocol[0] = '\0';
 
-    // Set default protocol to HTTP/1.1 (safe fallback)
+    // Set default protocol to HTTP/1.1
     strncpy(request->protocol, "HTTP/1.1", PROTOCOL_LENGTH);
-    request->protocol[PROTOCOL_LENGTH - 1] = '\0'; // Ensure null-termination
+    request->protocol[PROTOCOL_LENGTH - 1] = '\0'; 
 }
 
 // ========== PARSE HTTP REQUEST ============ //
